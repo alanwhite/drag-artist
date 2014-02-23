@@ -104,7 +104,7 @@ public class DragginSwing extends JFrame {
 	class CanvasDragController extends MouseAdapter implements DropTargetListener {
 		public CanvasDragController(Canvas canvas) {
 			canvas.addMouseMotionListener(this);
-			canvas.setSourceActions ... somehow (?)
+			// canvas.setSourceActions ... somehow (?)
 			DropTarget target = new DropTarget(canvas,this);
 		}
 
