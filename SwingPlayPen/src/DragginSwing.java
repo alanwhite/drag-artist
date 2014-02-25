@@ -21,6 +21,7 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
+import javax.swing.TransferHandler.TransferSupport;
 import javax.swing.WindowConstants;
 
 
@@ -52,9 +53,22 @@ public class DragginSwing extends JFrame {
 	}
 		
 	class CanvasWidget extends JPanel {
+		private boolean selected = false;
+		
 		public CanvasWidget() {
 			setBackground(Color.DARK_GRAY);
-			setTransferHandler(new CanvasWidgetTransferHandler());
+		}
+		
+		public boolean isSelected() {
+			return selected;
+		}
+		
+		public void setSelected(boolean selected) {
+			if ( selected )
+				setBackground(Color.LIGHT_GRAY);
+			else
+				setBackground(Color.DARK_GRAY);
+			this.selected = selected;
 		}
 	}
 	
@@ -85,29 +99,71 @@ public class DragginSwing extends JFrame {
 		}		
 	}
 	
-	class CanvasWidgetTransferHandler extends TransferHandler {	
+	class CanvasTransferHandler extends TransferHandler {	
 		public int getSourceActions(JComponent c) {
 			return TransferHandler.MOVE;
 		}
 
 		protected Transferable createTransferable(JComponent c) {
-			return new CanvasWidgetTransferable((CanvasWidget) c);
+			for ( Component comp : c.getComponents() ) {
+				if ( comp instanceof CanvasWidget ) {
+					CanvasWidget canvasWidget = (CanvasWidget) comp;
+					if ( canvasWidget.isSelected() ) {
+						return new CanvasWidgetTransferable(canvasWidget);
+					}
+				}
+			}
+			return null;
 		}
 
 		protected void exportDone(JComponent source, Transferable data,
 				int action) {
 			if ( action == TransferHandler.MOVE ) {
-				Canvas canvas = (Canvas) source.getParent();
-				canvas.remove(source);
-				canvas.repaint();
+				Canvas canvas = (Canvas) source;
+				for ( Component comp : source.getComponents() ) {
+					if ( comp instanceof CanvasWidget ) {
+						CanvasWidget canvasWidget = (CanvasWidget) comp;
+						if ( canvasWidget.isSelected() ) {
+							canvas.remove(canvasWidget);
+							canvas.repaint();
+						}
+					}
+				}
 			}
+		}
+
+		public boolean importData(TransferSupport support) {
+			if ( !canImport(support) )
+				return false;
+
+			Canvas canvas = (Canvas) support.getComponent();
+			Rectangle bounds = new Rectangle(0,0,10,10);
+			try {
+				bounds = (Rectangle) support.getTransferable().getTransferData(widgetFlavor);
+			} catch (Exception e) {
+				e.printStackTrace();
+				return false;
+			}
+			
+			CanvasWidget widget = new CanvasWidget();
+			bounds.setLocation(support.getDropLocation().getDropPoint());
+			widget.setBounds(bounds);
+			canvas.add(widget);
+			canvas.repaint();
+			return true;
+		}
+
+		public boolean canImport(TransferSupport support) {
+			if ( support.isDataFlavorSupported(widgetFlavor) )
+				return true;
+			return false;
 		}
 	}
 	
-	class CanvasDragController extends MouseAdapter implements DropTargetListener {
+	class CanvasDragController extends MouseAdapter {
 		public CanvasDragController(Canvas canvas) {
 			canvas.addMouseMotionListener(this);
-			new DropTarget(canvas,this);
+			canvas.setTransferHandler(new CanvasTransferHandler());
 		}
 
 		public void mouseDragged(MouseEvent e) {
@@ -115,44 +171,14 @@ public class DragginSwing extends JFrame {
 			Component comp = canvas.getComponentAt(e.getPoint());
 			if ( comp != null ) {
 				if ( comp instanceof CanvasWidget ) {
-					CanvasWidget widget = (CanvasWidget) comp;
-					TransferHandler th = widget.getTransferHandler();
-					th.exportAsDrag(widget, e, TransferHandler.MOVE);
+					CanvasWidget canvasWidget = (CanvasWidget) comp;
+					canvasWidget.setSelected(true);
+					TransferHandler th = canvas.getTransferHandler();
+					th.exportAsDrag(canvas, e, TransferHandler.MOVE);
 				}
 			}
 		}
 
-		public void dragEnter(DropTargetDragEvent dtde) {}
-		public void dragOver(DropTargetDragEvent dtde) {}
-		public void dropActionChanged(DropTargetDragEvent dtde) {}
-		public void dragExit(DropTargetEvent dte) {}
-
-		public void drop(DropTargetDropEvent dtde) {
-			if (!dtde.isDataFlavorSupported(widgetFlavor)) {
-				dtde.rejectDrop();
-			}
-			
-			dtde.acceptDrop(DnDConstants.ACTION_MOVE);
-			
-			Canvas canvas = (Canvas) dtde.getDropTargetContext().getComponent();
-			
-			Rectangle bounds = new Rectangle(0,0,10,10);
-			try {
-				bounds = (Rectangle) dtde.getTransferable().getTransferData(widgetFlavor);
-			} catch (UnsupportedFlavorException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-			
-			CanvasWidget widget = new CanvasWidget();
-			bounds.setLocation(dtde.getLocation());
-			widget.setBounds(bounds);
-			widget.setTransferHandler(new CanvasWidgetTransferHandler());
-			canvas.add(widget);
-			canvas.repaint();
-			dtde.dropComplete(true);
-		}
 	}
 	
 	public static void main(String[] args) {
