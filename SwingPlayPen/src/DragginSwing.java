@@ -53,22 +53,22 @@ public class DragginSwing extends JFrame {
 	}
 		
 	class CanvasWidget extends JPanel {
-		private boolean selected = false;
+		private boolean moving = false;
 		
 		public CanvasWidget() {
 			setBackground(Color.DARK_GRAY);
 		}
 		
-		public boolean isSelected() {
-			return selected;
+		public boolean isMoving() {
+			return moving;
 		}
 		
-		public void setSelected(boolean selected) {
-			if ( selected )
+		public void setMoving(boolean moving) {
+			if ( moving )
 				setBackground(Color.LIGHT_GRAY);
 			else
 				setBackground(Color.DARK_GRAY);
-			this.selected = selected;
+			this.moving = moving;
 		}
 	}
 	
@@ -108,7 +108,7 @@ public class DragginSwing extends JFrame {
 			for ( Component comp : c.getComponents() ) {
 				if ( comp instanceof CanvasWidget ) {
 					CanvasWidget canvasWidget = (CanvasWidget) comp;
-					if ( canvasWidget.isSelected() ) {
+					if ( canvasWidget.isMoving() ) {
 						return new CanvasWidgetTransferable(canvasWidget);
 					}
 				}
@@ -123,7 +123,7 @@ public class DragginSwing extends JFrame {
 				for ( Component comp : source.getComponents() ) {
 					if ( comp instanceof CanvasWidget ) {
 						CanvasWidget canvasWidget = (CanvasWidget) comp;
-						if ( canvasWidget.isSelected() ) {
+						if ( canvasWidget.isMoving() ) {
 							canvas.remove(canvasWidget);
 							canvas.repaint();
 						}
@@ -172,7 +172,7 @@ public class DragginSwing extends JFrame {
 			if ( comp != null ) {
 				if ( comp instanceof CanvasWidget ) {
 					CanvasWidget canvasWidget = (CanvasWidget) comp;
-					canvasWidget.setSelected(true);
+					canvasWidget.setMoving(true);
 					TransferHandler th = canvas.getTransferHandler();
 					th.exportAsDrag(canvas, e, TransferHandler.MOVE);
 				}
