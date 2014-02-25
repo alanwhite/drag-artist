@@ -37,10 +37,10 @@ import javax.swing.TransferHandler;
 import javax.swing.TransferHandler.TransferSupport;
 import javax.swing.WindowConstants;
 
-public class DragginSwing extends JFrame {
+public class DragginSwingComponent extends JFrame {
 	private DataFlavor widgetFlavor = new DataFlavor(CanvasWidget.class,"Draggin canvas widget");
 	
-	public DragginSwing() {
+	public DragginSwingComponent() {
 		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 		this.setPreferredSize(new Dimension(600,400));
 		
@@ -170,7 +170,7 @@ public class DragginSwing extends JFrame {
 	public static void main(String[] args) {
 		SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
-				new DragginSwing();
+				new DragginSwingComponent();
 			}
 		});
 	}
