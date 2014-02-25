@@ -226,8 +226,13 @@ public class DragginCustom extends JFrame {
 				if ( dsde.getDropAction() == DnDConstants.ACTION_MOVE) {
 					// we need to remove the source element now
 					Point p = new Point(bounds.x,bounds.y);
-					CanvasWidget widget = canvasModel.getWidgetAt(p);
-					canvasModel.remove(widget);
+					CanvasWidget widget = null;
+					for ( CanvasWidget searchWidget : canvasModel.widgetList ) {
+						if ( searchWidget.getBounds().getLocation().equals(p) )
+							widget = searchWidget;
+					}
+					if ( widget != null)
+						canvasModel.remove(widget);
 				}
 			} else {
 				// we need to mark it as no longer moving
