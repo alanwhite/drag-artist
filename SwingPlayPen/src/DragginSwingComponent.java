@@ -37,6 +37,9 @@ import javax.swing.TransferHandler;
 import javax.swing.TransferHandler.TransferSupport;
 import javax.swing.WindowConstants;
 
+// moved aside as this isn't really an equivalent of the DragginCustom example
+// this code attaches the TransferHandler to the CanvasWidget when a better equivalence would be
+// attaching it to the Canvas.
 public class DragginSwingComponent extends JFrame {
 	private DataFlavor widgetFlavor = new DataFlavor(CanvasWidget.class,"Draggin canvas widget");
 	
