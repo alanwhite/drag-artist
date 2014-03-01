@@ -37,6 +37,7 @@ import javax.swing.WindowConstants;
 public class DragginSwing3 extends JFrame {
 
 	private DataFlavor widgetListFlavor = new DataFlavor(CanvasWidget.class,"Draggin canvas widget list");
+	private DataFlavor widgetOffsetFlavor = new DataFlavor(CanvasWidget.class,"Draggin canvas widget offset");
 	
 	public DragginSwing3() {
 		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
@@ -155,6 +156,9 @@ public class DragginSwing3 extends JFrame {
 			if ( flavor == DataFlavor.stringFlavor )
 				return true;
 			
+			if ( flavor == widgetOffsetFlavor )
+				return true;
+			
 			return false;
 		}
 
@@ -164,6 +168,8 @@ public class DragginSwing3 extends JFrame {
 				return boundsList.toString();
 			if ( flavor == widgetListFlavor )
 				return new ArrayList<Rectangle>(boundsList);
+			if ( flavor == widgetOffsetFlavor )
+				return new Point(canvasOffset);
 			return null;
 		}	
 		
@@ -194,14 +200,7 @@ public class DragginSwing3 extends JFrame {
 						if ( comp instanceof CanvasWidget ) 
 							((CanvasWidget) comp).setSelected(false);
 					}
-					BufferedImage widgetImage = new BufferedImage(hitWidget.getWidth(),
-							hitWidget.getHeight(),BufferedImage.TYPE_INT_ARGB);
-					Graphics g = widgetImage.getGraphics();
-					hitWidget.paintAll(g);
-					hitWidget.setMoving(true);
-					setDragImage(widgetImage);
-					setDragImageOffset(new Point(hitWidget.getX() - dragStart.x, hitWidget.getY() - dragStart.y));
-					return new CanvasWidgetTransferable(hitWidget);
+					hitWidget.setSelected(true);
 				}
 
 				// if we get here user started drag on a selected widget so all selected widgets get dragged
@@ -264,18 +263,16 @@ public class DragginSwing3 extends JFrame {
 
 			Canvas canvas = (Canvas) support.getComponent();
 			List<Rectangle> boundsList = new ArrayList<Rectangle>();
+			Point canvasOffset = new Point(0,0);
 			Transferable transferable = support.getTransferable();
 			try {
 				boundsList = (List<Rectangle>) transferable.getTransferData(widgetListFlavor);
+				canvasOffset = (Point) transferable.getTransferData(widgetOffsetFlavor);
 			} catch (Exception e) {
 				e.printStackTrace();
 				return false;
 			}
 
-			Point canvasOffset = new Point(0,0);
-			if ( transferable instanceof CanvasWidgetTransferable ) 
-				canvasOffset = ((CanvasWidgetTransferable) transferable).getCanvasOffset();
-			
 			for ( Rectangle bounds : boundsList ) {
 				CanvasWidget widget = new CanvasWidget();
 				Point mouseLocation = support.getDropLocation().getDropPoint();
