@@ -52,7 +52,6 @@ public class DragginSwing3 extends JFrame {
 	}
 	
 	class Canvas extends JPanel {
-		
 		private JPanel selectionPanel = new JPanel();
 		
 		public Canvas() {
