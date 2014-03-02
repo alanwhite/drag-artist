@@ -3,19 +3,11 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Graphics;
-import java.awt.Image;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.SystemColor;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
-import java.awt.dnd.DnDConstants;
-import java.awt.dnd.DropTarget;
-import java.awt.dnd.DropTargetDragEvent;
-import java.awt.dnd.DropTargetDropEvent;
-import java.awt.dnd.DropTargetEvent;
-import java.awt.dnd.DropTargetListener;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -30,7 +22,6 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
-import javax.swing.TransferHandler.TransferSupport;
 import javax.swing.WindowConstants;
 
 // this version adds a drag image
@@ -56,7 +47,6 @@ public class DragginSwing3 extends JFrame {
 		widget2.setBounds(new Rectangle(100,100,50,50));
 		canvas.add(widget2);
 		
-		
 		pack();
 		setVisible(true);
 	}
@@ -74,24 +64,17 @@ public class DragginSwing3 extends JFrame {
 			add(selectionPanel);
 		}
 		
-		public void setSelectionStartPoint(Point startPoint) {
-			selectionPanel.setLocation(startPoint);
-			if ( startPoint.x == 0 && startPoint.y == 0 ) {
+		public void setSelectionBounds(Point point1, Point point2) {
+			selectionPanel.setLocation(Math.min(point1.x, point2.x),Math.min(point1.y, point2.y));
+			selectionPanel.setSize(
+					Math.max(point1.x - point2.x, point2.x - point1.x),
+					Math.max(point1.y - point2.y, point2.y - point1.y));
+			if ( selectionPanel.getBounds().isEmpty() ) 
 				selectionPanel.setVisible(false);
-				selectionPanel.setBounds(new Rectangle(0,0,0,0));
-			} else {
+			else
 				selectionPanel.setVisible(true);
-			}
 		}
-		
-		public void setSelectionEndPoint(Point endPoint) {
-			Rectangle bounds = selectionPanel.getBounds();
-			bounds.add(endPoint);
-			selectionPanel.setBounds(bounds);
-			selectionPanel.setVisible(true);
-			repaint();
-		}
-		
+				
 		public Rectangle getSelectionBounds() {
 			return selectionPanel.getBounds();
 		}
@@ -227,13 +210,13 @@ public class DragginSwing3 extends JFrame {
 					drawingWidget.paintAll(g);
 					drawingWidget.setMoving(true);
 				}
-				
+
 				setDragImage(selectedWidgetsImage);
 				setDragImageOffset(new Point(allSelectedArea.x - dragStart.x, allSelectedArea.y - dragStart.y));
 				return new CanvasWidgetTransferable(selectedWidgetList,canvasOffset);
 			}
 			return null;				
-	}
+		}
 
 		protected void exportDone(JComponent source, Transferable data,
 				int action) {
@@ -290,8 +273,7 @@ public class DragginSwing3 extends JFrame {
 	}
 	
 	class CanvasDragController extends MouseAdapter {
-		
-		private boolean selecting = false;
+		private Point dragStart = null;
 		
 		public CanvasDragController(Canvas canvas) {
 			canvas.addMouseMotionListener(this);
@@ -302,27 +284,26 @@ public class DragginSwing3 extends JFrame {
 		public void mouseDragged(MouseEvent e) {
 			Canvas canvas = (Canvas) e.getComponent();
 			
-			if ( selecting ) {
-				canvas.setSelectionEndPoint(e.getPoint());
+			if ( dragStart != null ) {
+				canvas.setSelectionBounds(dragStart, e.getPoint());
 			} else {
 				Component hitComp = canvas.getComponentAt(e.getPoint());
 				if ( hitComp instanceof CanvasWidget ) {
 					TransferHandler th = canvas.getTransferHandler();
 					th.exportAsDrag(canvas, e, TransferHandler.MOVE);
 				} else {
-					selecting = true;
+					dragStart = e.getPoint();
 					for ( Component comp : canvas.getComponents() ) {
 						if ( comp instanceof CanvasWidget ) 
 							((CanvasWidget) comp).setSelected(false);
 					}
-					canvas.setSelectionStartPoint(e.getPoint());
-					canvas.setSelectionEndPoint(e.getPoint());	
+					canvas.setSelectionBounds(dragStart, dragStart);
 				}				
 			}
 		}
 
 		public void mouseReleased(MouseEvent e) {
-			selecting = false;
+			dragStart = null;
 			Canvas canvas = (Canvas) e.getComponent();
 			Rectangle selectionArea = canvas.getSelectionBounds();
 			for ( Component comp : canvas.getComponents() ) {
@@ -331,10 +312,8 @@ public class DragginSwing3 extends JFrame {
 					canvasWidget.setSelected(selectionArea.contains(canvasWidget.getBounds()));
 				}
 			}
-			canvas.setSelectionEndPoint(new Point(0,0));
-			canvas.setSelectionStartPoint(new Point(0,0));
+			canvas.setSelectionBounds(new Point(0,0), new Point(0,0));
 		}
-
 	}
 	
 	public static void main(String[] args) {
