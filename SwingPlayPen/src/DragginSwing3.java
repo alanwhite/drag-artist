@@ -25,12 +25,12 @@ import javax.swing.TransferHandler;
 import javax.swing.WindowConstants;
 
 // this version adds a drag image
-public class DragginSwing3b extends JFrame {
+public class DragginSwing3 extends JFrame {
 
 	private DataFlavor widgetListFlavor = new DataFlavor(CanvasWidget.class,"Draggin canvas widget list");
 	private DataFlavor widgetOffsetFlavor = new DataFlavor(CanvasWidget.class,"Draggin canvas widget offset");
 	
-	public DragginSwing3b() {
+	public DragginSwing3() {
 		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 		this.setPreferredSize(new Dimension(600,400));
 		
@@ -318,7 +318,7 @@ public class DragginSwing3b extends JFrame {
 	public static void main(String[] args) {
 		SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
-				new DragginSwing3b();
+				new DragginSwing3();
 			}
 		});
 	}
