@@ -20,19 +20,21 @@ import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
 import javax.swing.WindowConstants;
 
 /*
- * adds multi-widget selection & drag / drop
+ * adds mouse pointer visualisation if over a draggable widget, illustrating what happens if each widget 
+ * actually has content that cares about mouse and dnd actions.
  */
-public class DragginSwing3 extends JFrame {
+public class DragginSwing4 extends JFrame {
 
 	private DataFlavor widgetListFlavor = new DataFlavor(CanvasWidget.class,"Draggin canvas widget list");
 	private DataFlavor widgetOffsetFlavor = new DataFlavor(CanvasWidget.class,"Draggin canvas widget offset");
 	
-	public DragginSwing3() {
+	public DragginSwing4() {
 		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 		this.setPreferredSize(new Dimension(600,400));
 		
@@ -84,6 +86,7 @@ public class DragginSwing3 extends JFrame {
 		
 		public CanvasWidget() {
 			setBackground(Color.DARK_GRAY);
+			add(new JTextField("data to edit"));
 		}
 		
 		public boolean isMoving() {
@@ -317,7 +320,7 @@ public class DragginSwing3 extends JFrame {
 	public static void main(String[] args) {
 		SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
-				new DragginSwing3();
+				new DragginSwing4();
 			}
 		});
 	}
