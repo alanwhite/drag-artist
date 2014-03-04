@@ -228,6 +228,10 @@ public class DragginSwing3 extends JFrame {
 					}
 				}
 				canvas.repaint();
+			} else if ( action == TransferHandler.NONE ) {
+				for ( Component comp : source.getComponents() ) 
+					if ( comp instanceof CanvasWidget ) 
+						((CanvasWidget) comp).setMoving(false);
 			}
 		}
 

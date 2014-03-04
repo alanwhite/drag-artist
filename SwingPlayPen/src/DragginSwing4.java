@@ -1,6 +1,7 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Point;
@@ -24,6 +25,7 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
 import javax.swing.WindowConstants;
+import javax.swing.border.Border;
 
 /*
  * adds mouse pointer visualisation if over a draggable widget, illustrating what happens if each widget 
@@ -44,7 +46,7 @@ public class DragginSwing4 extends JFrame {
 		
 		for ( int i=0; i<3 ; i++) {
 			CanvasWidget widget = new CanvasWidget();
-			widget.setBounds(new Rectangle(10+(i*50),10+(i*50),50,50));
+			widget.setLocation(new Point(10+(i*50),10+(i*50)));
 			canvas.add(widget);
 		}
 		
@@ -78,15 +80,28 @@ public class DragginSwing4 extends JFrame {
 		public Rectangle getSelectionBounds() {
 			return selectionPanel.getBounds();
 		}
+		
 	}
 		
 	class CanvasWidget extends JPanel {
+		
 		private boolean moving = false;
 		private boolean selected = false;
+		private Border emptyBorder = BorderFactory.createEmptyBorder(8, 8, 8, 8);
+		private Border selectedBorder = BorderFactory.createLineBorder(Color.RED, 8);
 		
 		public CanvasWidget() {
+			setBorder(emptyBorder);
 			setBackground(Color.DARK_GRAY);
-			add(new JTextField("data to edit"));
+			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+			
+			setLayout(new BorderLayout());
+			JTextField text = new JTextField("data to edit");
+			add(text, BorderLayout.CENTER);
+			Dimension size = new Dimension(
+					getInsets().left+getInsets().right+text.getPreferredSize().width,
+					getInsets().top+getInsets().bottom+text.getPreferredSize().height);
+			setSize(size);
 		}
 		
 		public boolean isMoving() {
@@ -108,15 +123,16 @@ public class DragginSwing4 extends JFrame {
 		public void setSelected(boolean selected) {
 			this.selected = selected;
 			if ( selected )
-				setBackground(Color.RED);
+				setBorder(selectedBorder);
 			else
-				setBackground(Color.DARK_GRAY);
+				setBorder(emptyBorder);
 		}
 	}
 	
 	class CanvasWidgetTransferable implements Transferable {
 		private DataFlavor[] flavorArray = { widgetListFlavor, widgetOffsetFlavor, DataFlavor.stringFlavor };
 		private List<Rectangle> boundsList = new ArrayList<Rectangle>();
+		private List<String> textList = new ArrayList<String>();
 		private Point canvasOffset = new Point(0,0);
 		
 		public CanvasWidgetTransferable(CanvasWidget canvasWidget) {
@@ -124,8 +140,9 @@ public class DragginSwing4 extends JFrame {
 		}
 
 		public CanvasWidgetTransferable(List<CanvasWidget> canvasWidgets, Point canvasOffset) {
-			for ( CanvasWidget widget : canvasWidgets )
+			for ( CanvasWidget widget : canvasWidgets ) {
 				boundsList.add(widget.getBounds());
+			}
 			this.canvasOffset = canvasOffset;
 		}
 		
@@ -231,6 +248,10 @@ public class DragginSwing4 extends JFrame {
 					}
 				}
 				canvas.repaint();
+			} else if ( action == TransferHandler.NONE ) {
+				for ( Component comp : source.getComponents() ) 
+					if ( comp instanceof CanvasWidget ) 
+						((CanvasWidget) comp).setMoving(false);
 			}
 		}
 
@@ -268,6 +289,7 @@ public class DragginSwing4 extends JFrame {
 				widget.setBounds(bounds);
 				canvas.add(widget);
 			}
+			canvas.validate();
 			canvas.repaint();
 			return true;
 		}
