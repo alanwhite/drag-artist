@@ -4,6 +4,7 @@ import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.datatransfer.DataFlavor;
@@ -87,12 +88,12 @@ public class DragginSwing4 extends JFrame {
 		
 		private boolean moving = false;
 		private boolean selected = false;
-		private Border emptyBorder = BorderFactory.createEmptyBorder(8, 8, 8, 8);
-		private Border selectedBorder = BorderFactory.createLineBorder(Color.RED, 8);
+		private Border emptyBorder = BorderFactory.createEmptyBorder(4, 4, 4, 4);
+		private Border selectedBorder = new CanvasWidgetBorder();
 		
 		public CanvasWidget() {
 			setBorder(emptyBorder);
-			setBackground(Color.DARK_GRAY);
+			setBackground(Color.WHITE);
 			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 			
 			setLayout(new BorderLayout());
@@ -112,7 +113,7 @@ public class DragginSwing4 extends JFrame {
 			if ( moving )
 				setBackground(Color.LIGHT_GRAY);
 			else
-				setBackground(Color.DARK_GRAY);
+				setBackground(Color.WHITE);
 			this.moving = moving;
 		}
 
@@ -127,6 +128,43 @@ public class DragginSwing4 extends JFrame {
 			else
 				setBorder(emptyBorder);
 		}
+	}
+	
+	class CanvasWidgetBorder implements Border {
+
+		final private int size = 8;
+		final private Rectangle[] handle = { 
+				new Rectangle(0,0,size,size), new Rectangle(0,0,size,size), new Rectangle(0,0,size,size),
+				new Rectangle(0,0,size,size), new Rectangle(0,0,size,size),
+				new Rectangle(0,0,size,size), new Rectangle(0,0,size,size), new Rectangle(0,0,size,size) };
+		final private int[] cursor = {
+				Cursor.NE_RESIZE_CURSOR, Cursor.N_RESIZE_CURSOR, Cursor.NW_RESIZE_CURSOR,
+				Cursor.E_RESIZE_CURSOR, Cursor.W_RESIZE_CURSOR,
+				Cursor.SE_RESIZE_CURSOR, Cursor.S_RESIZE_CURSOR, Cursor.SW_RESIZE_CURSOR };
+		
+		public void paintBorder(Component c, Graphics g, int x, int y,
+				int width, int height) {
+			handle[0].setLocation(x, y);
+			handle[1].setLocation(x + width/2 - size/2, y);
+			handle[2].setLocation(x + width - size, y);
+			handle[3].setLocation(x, y + height/2 - size/2);
+			handle[4].setLocation(x + width - size, y + height/2 - size/2);
+			handle[5].setLocation(x, y + height - size);
+			handle[6].setLocation(x + width/2 - size/2, y + height - size);
+			handle[7].setLocation(x + width - size, y + height - size);
+			g.drawRect(x + size/2, y + size/2 , width - size, height - size);
+			for ( int i=0; i<handle.length; i++)
+				g.fillOval(handle[i].x, handle[i].y, handle[i].width, handle[i].height);
+		}
+
+		public Insets getBorderInsets(Component c) {
+			return new Insets(size,size,size,size);
+		}
+
+		public boolean isBorderOpaque() {
+			return false;
+		}
+		
 	}
 	
 	class CanvasWidgetTransferable implements Transferable {
@@ -306,14 +344,15 @@ public class DragginSwing4 extends JFrame {
 
 		public void mouseDragged(MouseEvent e) {
 			Canvas canvas = (Canvas) e.getComponent();
-			
 			if ( dragStart != null ) {
 				canvas.setSelectionBounds(dragStart, e.getPoint());
 			} else {
 				Component hitComp = canvas.getComponentAt(e.getPoint());
 				if ( hitComp instanceof CanvasWidget ) {
-					TransferHandler th = canvas.getTransferHandler();
-					th.exportAsDrag(canvas, e, TransferHandler.MOVE);
+					if ( hitComp.getCursor() == Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) ) {
+						TransferHandler th = canvas.getTransferHandler();
+						th.exportAsDrag(canvas, e, TransferHandler.MOVE);
+					}
 				} else {
 					dragStart = e.getPoint();
 					for ( Component comp : canvas.getComponents() ) {
