@@ -13,6 +13,7 @@ import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionListener;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -30,7 +31,8 @@ import javax.swing.border.Border;
 
 /*
  * adds mouse pointer visualisation if over a draggable widget, illustrating what happens if each widget 
- * actually has content that cares about mouse and dnd actions.
+ * actually has content that cares about mouse and dnd actions and how to manage mouse actions for resize
+ * as well as DnD and selection
  */
 public class DragginSwing4 extends JFrame {
 
@@ -57,6 +59,7 @@ public class DragginSwing4 extends JFrame {
 	
 	class Canvas extends JPanel {
 		private JPanel selectionPanel = new JPanel();
+		private CanvasWidgetResizeHandler canvasWidgetResizeHandler = new CanvasWidgetResizeHandler();
 		
 		public Canvas() {
 			setLayout(null);
@@ -81,6 +84,10 @@ public class DragginSwing4 extends JFrame {
 		public Rectangle getSelectionBounds() {
 			return selectionPanel.getBounds();
 		}
+
+		public CanvasWidgetResizeHandler getResizeHandler() {
+			return canvasWidgetResizeHandler;
+		}
 		
 	}
 		
@@ -95,6 +102,7 @@ public class DragginSwing4 extends JFrame {
 			setBorder(emptyBorder);
 			setBackground(Color.WHITE);
 			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+			addMouseMotionListener(new CanvasWidgetMouse());
 			
 			setLayout(new BorderLayout());
 			JTextField text = new JTextField("data to edit");
@@ -137,10 +145,7 @@ public class DragginSwing4 extends JFrame {
 				new Rectangle(0,0,size,size), new Rectangle(0,0,size,size), new Rectangle(0,0,size,size),
 				new Rectangle(0,0,size,size), new Rectangle(0,0,size,size),
 				new Rectangle(0,0,size,size), new Rectangle(0,0,size,size), new Rectangle(0,0,size,size) };
-		final private int[] cursor = {
-				Cursor.NE_RESIZE_CURSOR, Cursor.N_RESIZE_CURSOR, Cursor.NW_RESIZE_CURSOR,
-				Cursor.E_RESIZE_CURSOR, Cursor.W_RESIZE_CURSOR,
-				Cursor.SE_RESIZE_CURSOR, Cursor.S_RESIZE_CURSOR, Cursor.SW_RESIZE_CURSOR };
+
 		
 		public void paintBorder(Component c, Graphics g, int x, int y,
 				int width, int height) {
@@ -164,7 +169,43 @@ public class DragginSwing4 extends JFrame {
 		public boolean isBorderOpaque() {
 			return false;
 		}
-		
+
+		public Rectangle[] getHandle() {
+			return handle;
+		}	
+	}
+	
+	class CanvasWidgetMouse extends MouseAdapter {
+		final private int[] cursor = {
+				Cursor.NW_RESIZE_CURSOR, Cursor.N_RESIZE_CURSOR, Cursor.NE_RESIZE_CURSOR,
+				Cursor.E_RESIZE_CURSOR, Cursor.W_RESIZE_CURSOR,
+				Cursor.SW_RESIZE_CURSOR, Cursor.S_RESIZE_CURSOR, Cursor.SE_RESIZE_CURSOR, 
+				Cursor.HAND_CURSOR };
+
+		public void mouseMoved(MouseEvent e) {
+			CanvasWidget widget = (CanvasWidget) e.getComponent();
+			Border border = widget.getBorder();
+			if ( border instanceof CanvasWidgetBorder ) {
+				CanvasWidgetBorder canvasBorder = (CanvasWidgetBorder) widget.getBorder();
+				Rectangle[] handle = canvasBorder.getHandle();
+				int foundIndex = 8;
+				for ( int i=0; i<handle.length; i++ ) {
+					if ( handle[i].contains(e.getPoint()) ) {
+						foundIndex=i;
+						break;
+					}
+				}
+				widget.setCursor(Cursor.getPredefinedCursor(cursor[foundIndex]));
+			}
+		}
+
+		public void mouseDragged(MouseEvent e) {
+			Component parent = e.getComponent().getParent();
+			parent.dispatchEvent(new MouseEvent(parent,e.getID(),e.getWhen(),e.getModifiers(),
+					e.getComponent().getX() + e.getX(),e.getComponent().getY() + e.getY(),
+					e.getXOnScreen(),e.getYOnScreen(),e.getClickCount(),e.isPopupTrigger(),
+					e.getButton()));
+		}
 	}
 	
 	class CanvasWidgetTransferable implements Transferable {
@@ -215,11 +256,13 @@ public class DragginSwing4 extends JFrame {
 	}
 	
 	class CanvasTransferHandler extends TransferHandler {	
-		private Point dragStart = new Point();
+		private Point dragStart = null;
 		
 		public void exportAsDrag(JComponent comp, InputEvent e, int action) {
-			dragStart = ((MouseEvent) e).getPoint();
-			super.exportAsDrag(comp, e, action);
+			if ( dragStart == null ) {
+				dragStart = ((MouseEvent) e).getPoint();
+				super.exportAsDrag(comp, e, action);
+			}
 		}
 		
 		public int getSourceActions(JComponent c) {
@@ -276,6 +319,7 @@ public class DragginSwing4 extends JFrame {
 
 		protected void exportDone(JComponent source, Transferable data,
 				int action) {
+			dragStart = null;
 			if ( action == TransferHandler.MOVE ) {
 				Canvas canvas = (Canvas) source;
 				for ( Component comp : source.getComponents() ) {
@@ -333,6 +377,38 @@ public class DragginSwing4 extends JFrame {
 		}
 	}
 	
+	class CanvasWidgetResizeHandler {
+		List<CanvasWidget> selectedWidgets = new ArrayList<CanvasWidget>();
+
+		private MouseMotionListener mml = new MouseMotionListener() {
+			public void mouseDragged(MouseEvent e) {
+				System.out.println("moose loose");
+			}
+
+			public void mouseMoved(MouseEvent e) {}				
+		};
+		
+		public void startResize(MouseEvent e) {
+			selectedWidgets.clear();
+			Canvas canvas = (Canvas) e.getComponent();
+			// get all the selected widgets
+			for ( Component comp : canvas.getComponents() ) {
+				if ( comp instanceof CanvasWidget ) {
+					if ( ((CanvasWidget) comp).isSelected() ) 
+						selectedWidgets.add((CanvasWidget) comp);
+				}
+			}
+
+			// figure out which component was hit and get the cursor
+			Component hitComp = canvas.getComponentAt(e.getPoint());
+			Cursor cursor = hitComp.getCursor();
+			
+			// use subsequent drags to work out percentage move from opposite corner / side
+			
+			// fire that percentage into each selected widget
+		}
+	}
+	
 	class CanvasDragController extends MouseAdapter {
 		private Point dragStart = null;
 		
@@ -352,6 +428,8 @@ public class DragginSwing4 extends JFrame {
 					if ( hitComp.getCursor() == Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) ) {
 						TransferHandler th = canvas.getTransferHandler();
 						th.exportAsDrag(canvas, e, TransferHandler.MOVE);
+					} else {
+						canvas.getResizeHandler().startResize(e);
 					}
 				} else {
 					dragStart = e.getPoint();
