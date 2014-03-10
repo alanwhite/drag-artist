@@ -89,15 +89,14 @@ public class DragginSwing4 extends JFrame {
 
 		public CanvasWidgetResizeHandler getResizeHandler() {
 			return canvasWidgetResizeHandler;
-		}
-		
+		}		
 	}
 		
 	class CanvasWidget extends JPanel {
 		
 		private boolean moving = false;
 		private boolean selected = false;
-		private Border emptyBorder = BorderFactory.createEmptyBorder(4, 4, 4, 4);
+		private Border emptyBorder = BorderFactory.createEmptyBorder(8, 8, 8, 8);
 		private Border selectedBorder = new CanvasWidgetBorder();
 		
 		public CanvasWidget() {
@@ -161,7 +160,7 @@ public class DragginSwing4 extends JFrame {
 			handle[5].setLocation(x, y + height - size);
 			handle[6].setLocation(x + width/2 - size/2, y + height - size);
 			handle[7].setLocation(x + width - size, y + height - size);
-			g.setColor(Color.BLUE);
+			g.setColor(SystemColor.textHighlight);
 			g.drawRect(x + size/2, y + size/2 , width - size, height - size);
 			for ( int i=0; i<handle.length; i++)
 				g.fillOval(handle[i].x, handle[i].y, handle[i].width, handle[i].height);
@@ -420,8 +419,7 @@ public class DragginSwing4 extends JFrame {
 				Point current = e.getPoint();
 				Point delta = new Point(current.x - start.x, current.y - start.y);
 				double xratio = (double)delta.x / hitSize.getWidth();
-				double yratio = (double)delta.y / hitWidget.getHeight();
-				System.out.println(xratio+" "+yratio);
+				double yratio = (double)delta.y / hitSize.getHeight();
 				
 				for ( CWBeforeResize cwOrig : originalWidgets ) {
 					int x=cwOrig.bounds.x, y=cwOrig.bounds.y, w=cwOrig.bounds.width, h=cwOrig.bounds.height; 
@@ -524,22 +522,27 @@ public class DragginSwing4 extends JFrame {
 		class CWBeforeResize {
 			private CanvasWidget widget;
 			private Rectangle bounds;
+			
 			public CWBeforeResize(CanvasWidget comp, Rectangle rectangle) {
 				widget = comp;
 				bounds = rectangle;
 			}
+			
 			public CanvasWidget getWidget() {
 				return widget;
 			}
-			public void setWidget(CanvasWidget widget) {
-				this.widget = widget;
-			}
+			
+			// public void setWidget(CanvasWidget widget) {
+			// 	this.widget = widget;
+			// }
+			
 			public Rectangle getBounds() {
 				return bounds;
 			}
-			public void setBounds(Rectangle bounds) {
-				this.bounds = bounds;
-			}
+			
+			// public void setBounds(Rectangle bounds) {
+			// 	this.bounds = bounds;
+			// }
 		}
 	}
 	
@@ -577,13 +580,28 @@ public class DragginSwing4 extends JFrame {
 		}
 
 		public void mouseReleased(MouseEvent e) {
-			dragStart = null;
 			Canvas canvas = (Canvas) e.getComponent();
-			Rectangle selectionArea = canvas.getSelectionBounds();
-			for ( Component comp : canvas.getComponents() ) {
+			if ( dragStart != null ) {
+				dragStart = null;
+				Rectangle selectionArea = canvas.getSelectionBounds();
+				for ( Component comp : canvas.getComponents() ) {
+					if ( comp instanceof CanvasWidget ) {
+						CanvasWidget canvasWidget = (CanvasWidget) comp;
+						canvasWidget.setSelected(selectionArea.contains(canvasWidget.getBounds()));
+					}
+				}
+				//canvas.setSelectionBounds(new Point(0,0), new Point(0,0));
+			} else {
+				Component comp = canvas.getComponentAt(e.getPoint());
 				if ( comp instanceof CanvasWidget ) {
-					CanvasWidget canvasWidget = (CanvasWidget) comp;
-					canvasWidget.setSelected(selectionArea.contains(canvasWidget.getBounds()));
+					((CanvasWidget) comp).setSelected(true);
+				} else {
+					for ( Component comp1 : canvas.getComponents() ) {
+						if ( comp1 instanceof CanvasWidget ) {
+							CanvasWidget canvasWidget = (CanvasWidget) comp1;
+							canvasWidget.setSelected(false);
+						}
+					}
 				}
 			}
 			canvas.setSelectionBounds(new Point(0,0), new Point(0,0));
