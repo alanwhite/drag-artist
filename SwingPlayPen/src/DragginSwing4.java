@@ -11,6 +11,8 @@ import java.awt.SystemColor;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -34,7 +36,7 @@ import javax.swing.border.Border;
 /*
  * adds mouse pointer visualisation if over a draggable widget, illustrating what happens if each widget 
  * actually has content that cares about mouse and dnd actions and how to manage mouse actions for resize
- * as well as DnD and selection
+ * as well as DnD and selection 
  */
 public class DragginSwing4 extends JFrame {
 
@@ -81,6 +83,7 @@ public class DragginSwing4 extends JFrame {
 				selectionPanel.setVisible(false);
 			else
 				selectionPanel.setVisible(true);
+			setComponentZOrder(selectionPanel, 0);
 		}
 				
 		public Rectangle getSelectionBounds() {
@@ -102,7 +105,7 @@ public class DragginSwing4 extends JFrame {
 		public CanvasWidget() {
 			setBorder(emptyBorder);
 			setBackground(Color.WHITE);
-			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
 			CanvasWidgetMouse cwm = new CanvasWidgetMouse();
 			addMouseMotionListener(cwm);	// so we can re-dispatch drag
 			addMouseListener(cwm); 			// and release events on the border	
@@ -218,12 +221,17 @@ public class DragginSwing4 extends JFrame {
 					e.getXOnScreen(),e.getYOnScreen(),e.getClickCount(),e.isPopupTrigger(),
 					e.getButton()));
 		}
+
+		public void mouseEntered(MouseEvent e) {
+			e.getComponent().setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		}
 	}
 	
 	class CanvasWidgetTransferable implements Transferable {
-		private DataFlavor[] flavorArray = { widgetListFlavor, widgetOffsetFlavor, DataFlavor.stringFlavor };
+		// private DataFlavor[] flavorArray = { widgetListFlavor, widgetOffsetFlavor, DataFlavor.stringFlavor };
+		private DataFlavor[] flavorArray = { widgetListFlavor, widgetOffsetFlavor };
+
 		private List<Rectangle> boundsList = new ArrayList<Rectangle>();
-		private List<String> textList = new ArrayList<String>();
 		private Point canvasOffset = new Point(0,0);
 		
 		public CanvasWidgetTransferable(CanvasWidget canvasWidget) {
@@ -282,7 +290,6 @@ public class DragginSwing4 extends JFrame {
 		}
 
 		protected Transferable createTransferable(JComponent c) {
-			// if the component under the cursor isn't selected, deselect all, and make that component the one we're moving
 			Component hitComp = c.getComponentAt(dragStart);
 			if ( hitComp instanceof CanvasWidget ) {
 				CanvasWidget hitWidget = (CanvasWidget) hitComp;
@@ -294,7 +301,6 @@ public class DragginSwing4 extends JFrame {
 					hitWidget.setSelected(true);
 				}
 
-				// if we get here user started drag on a selected widget so all selected widgets get dragged
 				Rectangle allSelectedArea = null;
 				List<CanvasWidget> selectedWidgetList = new ArrayList<CanvasWidget>();
 				for ( Component comp : c.getComponents() ) {
@@ -391,7 +397,7 @@ public class DragginSwing4 extends JFrame {
 	
 	class CanvasWidgetResizeHandler {
 		private List<CWBeforeResize> originalWidgets = new ArrayList<CWBeforeResize>();
-		private List<CanvasWidget> selectedWidgets = new ArrayList<CanvasWidget>();
+		//private List<CanvasWidget> selectedWidgets = new ArrayList<CanvasWidget>();
 		private Canvas canvas = null;
 		private MouseMotionListener[] savedMMLs = null;
 		private MouseListener[] savedMLs = null;
@@ -465,7 +471,7 @@ public class DragginSwing4 extends JFrame {
 			if ( !isResizing() ) {
 				setResizing(true);
 				originalWidgets.clear();
-				selectedWidgets.clear();
+				//selectedWidgets.clear();
 
 				canvas = (Canvas) e.getComponent();
 				// get all the selected widgets
@@ -475,7 +481,7 @@ public class DragginSwing4 extends JFrame {
 							// save away for reference and any TBD undo operation
 							originalWidgets.add(new CWBeforeResize((CanvasWidget) comp, new Rectangle(comp.getBounds())));
 							// create handy local list of selected widgets
-							selectedWidgets.add((CanvasWidget) comp);
+							//selectedWidgets.add((CanvasWidget) comp);
 						}
 					}
 				}
@@ -526,33 +532,19 @@ public class DragginSwing4 extends JFrame {
 			public CWBeforeResize(CanvasWidget comp, Rectangle rectangle) {
 				widget = comp;
 				bounds = rectangle;
-			}
-			
-			public CanvasWidget getWidget() {
-				return widget;
-			}
-			
-			// public void setWidget(CanvasWidget widget) {
-			// 	this.widget = widget;
-			// }
-			
-			public Rectangle getBounds() {
-				return bounds;
-			}
-			
-			// public void setBounds(Rectangle bounds) {
-			// 	this.bounds = bounds;
-			// }
+			}			
 		}
 	}
 	
-	class CanvasDragController extends MouseAdapter {
+	class CanvasDragController extends MouseAdapter implements FocusListener {
 		private Point dragStart = null;
 		
 		public CanvasDragController(Canvas canvas) {
 			canvas.addMouseMotionListener(this);
 			canvas.addMouseListener(this);
 			canvas.setTransferHandler(new CanvasTransferHandler());
+			canvas.setFocusable(true);
+			canvas.addFocusListener(this);
 		}
 
 		public void mouseDragged(MouseEvent e) {
@@ -590,21 +582,30 @@ public class DragginSwing4 extends JFrame {
 						canvasWidget.setSelected(selectionArea.contains(canvasWidget.getBounds()));
 					}
 				}
-				//canvas.setSelectionBounds(new Point(0,0), new Point(0,0));
+				canvas.requestFocus();
 			} else {
-				Component comp = canvas.getComponentAt(e.getPoint());
-				if ( comp instanceof CanvasWidget ) {
-					((CanvasWidget) comp).setSelected(true);
-				} else {
-					for ( Component comp1 : canvas.getComponents() ) {
-						if ( comp1 instanceof CanvasWidget ) {
-							CanvasWidget canvasWidget = (CanvasWidget) comp1;
-							canvasWidget.setSelected(false);
-						}
-					}
+				for ( Component comp1 : canvas.getComponents() ) {
+					if ( comp1 instanceof CanvasWidget ) 
+						((CanvasWidget) comp1).setSelected(false);
+				}
+				Component hitComponent = canvas.getComponentAt(e.getPoint());
+				if ( hitComponent instanceof CanvasWidget ) {
+					((CanvasWidget) hitComponent).setSelected(true);
+					canvas.setComponentZOrder(hitComponent,0);
+					hitComponent.requestFocus();
 				}
 			}
 			canvas.setSelectionBounds(new Point(0,0), new Point(0,0));
+		}
+
+		public void focusGained(FocusEvent e) {}
+
+		public void focusLost(FocusEvent e) {
+			Canvas canvas = (Canvas) e.getComponent();
+			for ( Component comp1 : canvas.getComponents() ) 
+				if ( comp1 instanceof CanvasWidget ) 
+					((CanvasWidget) comp1).setSelected(false);
+			canvas.repaint();
 		}
 	}
 	
