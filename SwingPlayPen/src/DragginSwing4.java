@@ -7,6 +7,7 @@ import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.SystemColor;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
@@ -160,6 +161,7 @@ public class DragginSwing4 extends JFrame {
 			handle[5].setLocation(x, y + height - size);
 			handle[6].setLocation(x + width/2 - size/2, y + height - size);
 			handle[7].setLocation(x + width - size, y + height - size);
+			g.setColor(Color.BLUE);
 			g.drawRect(x + size/2, y + size/2 , width - size, height - size);
 			for ( int i=0; i<handle.length; i++)
 				g.fillOval(handle[i].x, handle[i].y, handle[i].width, handle[i].height);
@@ -395,9 +397,9 @@ public class DragginSwing4 extends JFrame {
 		private MouseMotionListener[] savedMMLs = null;
 		private MouseListener[] savedMLs = null;
 		private Point start = new Point();
+		private Dimension hitSize = new Dimension();
 		private Component hitWidget = null;
 		private int direction = 0;
-		int ox, oy, ow, oh; 
 		int count=0;
 		
 		private boolean resizing = false;
@@ -406,7 +408,6 @@ public class DragginSwing4 extends JFrame {
 
 			@Override
 			public void mouseReleased(MouseEvent e) {
-				System.out.println("mouseReleased: letting go ...");
 				e.getComponent().removeMouseListener(this);
 				e.getComponent().removeMouseMotionListener(this);
 				restoreOtherMLs((Canvas) e.getComponent());
@@ -416,48 +417,47 @@ public class DragginSwing4 extends JFrame {
 
 			@Override
 			public void mouseDragged(MouseEvent e) {
-				// here is where we do all the resizing work on every selected widget
 				Point current = e.getPoint();
 				Point delta = new Point(current.x - start.x, current.y - start.y);
-				double xratio = delta.x / hitWidget.getWidth();
-				double yratio = delta.y / hitWidget.getHeight();
+				double xratio = (double)delta.x / hitSize.getWidth();
+				double yratio = (double)delta.y / hitWidget.getHeight();
+				System.out.println(xratio+" "+yratio);
 				
-				int x=ox, y=oy, w=ow, h=oh; 
-				
-				// for now just do hitComp
-				switch(direction) {
-				case Cursor.NW_RESIZE_CURSOR:
-					x += delta.x; y += delta.y; w -= delta.x; h -= delta.y;
-					break;
-				case Cursor.N_RESIZE_CURSOR:
-					y += delta.y; h -= delta.y;
-					break;
-				case Cursor.NE_RESIZE_CURSOR:
-					y += delta.y; w += delta.x; h -= delta.y;
-					break;
-				case Cursor.E_RESIZE_CURSOR:
-					x += delta.x; w -= delta.x;
-					break;
-				case Cursor.W_RESIZE_CURSOR:
-					w += delta.x; 
-					break;
-				case Cursor.SW_RESIZE_CURSOR:
-					x += delta.x; w -= delta.x; h += delta.y;
-					break;
-				case Cursor.S_RESIZE_CURSOR:
-					h += delta.y;
-					break;
-				case Cursor.SE_RESIZE_CURSOR:			
-					w += delta.x; h += delta.y;
-					break;
+				for ( CWBeforeResize cwOrig : originalWidgets ) {
+					int x=cwOrig.bounds.x, y=cwOrig.bounds.y, w=cwOrig.bounds.width, h=cwOrig.bounds.height; 
+					delta.setLocation(xratio * cwOrig.bounds.width, yratio * cwOrig.bounds.height);
+					
+					switch(direction) {
+					case Cursor.NW_RESIZE_CURSOR:
+						x += delta.x; y += delta.y; w -= delta.x; h -= delta.y;
+						break;
+					case Cursor.N_RESIZE_CURSOR:
+						y += delta.y; h -= delta.y;
+						break;
+					case Cursor.NE_RESIZE_CURSOR:
+						y += delta.y; w += delta.x; h -= delta.y;
+						break;
+					case Cursor.E_RESIZE_CURSOR:
+						x += delta.x; w -= delta.x;
+						break;
+					case Cursor.W_RESIZE_CURSOR:
+						w += delta.x; 
+						break;
+					case Cursor.SW_RESIZE_CURSOR:
+						x += delta.x; w -= delta.x; h += delta.y;
+						break;
+					case Cursor.S_RESIZE_CURSOR:
+						h += delta.y;
+						break;
+					case Cursor.SE_RESIZE_CURSOR:			
+						w += delta.x; h += delta.y;
+						break;
+					}
+
+					cwOrig.widget.setBounds(x, y, w, h);
+					cwOrig.widget.revalidate();
 				}
-				
-				hitWidget.setBounds(x, y, w, h);
-				hitWidget.revalidate();
 				canvas.repaint();
-				
-				// .next is loop through selected and apply algo
-				
 				e.consume();
 			}
 			
@@ -486,10 +486,7 @@ public class DragginSwing4 extends JFrame {
 				start = e.getPoint();
 				hitWidget = canvas.getComponentAt(e.getPoint());
 				direction = hitWidget.getCursor().getType();
-				ox = hitWidget.getX();
-				oy = hitWidget.getY();
-				ow = hitWidget.getWidth();
-				oh = hitWidget.getHeight();
+				hitSize = hitWidget.getSize();
 
 				// use subsequent drags to work out moves from opposite corner / side
 				suspendOtherMLs(canvas);
