@@ -13,6 +13,7 @@ import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -102,7 +103,9 @@ public class DragginSwing4 extends JFrame {
 			setBorder(emptyBorder);
 			setBackground(Color.WHITE);
 			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-			addMouseMotionListener(new CanvasWidgetMouse());
+			CanvasWidgetMouse cwm = new CanvasWidgetMouse();
+			addMouseMotionListener(cwm);	// so we can re-dispatch drag
+			addMouseListener(cwm); 			// and release events on the border	
 			
 			setLayout(new BorderLayout());
 			JTextField text = new JTextField("data to edit");
@@ -200,6 +203,14 @@ public class DragginSwing4 extends JFrame {
 		}
 
 		public void mouseDragged(MouseEvent e) {
+			mouseToParent(e);
+		}
+		
+		public void mouseReleased(MouseEvent e) {
+			mouseToParent(e);
+		}
+		
+		private void mouseToParent(MouseEvent e) {
 			Component parent = e.getComponent().getParent();
 			parent.dispatchEvent(new MouseEvent(parent,e.getID(),e.getWhen(),e.getModifiers(),
 					e.getComponent().getX() + e.getX(),e.getComponent().getY() + e.getY(),
@@ -378,34 +389,160 @@ public class DragginSwing4 extends JFrame {
 	}
 	
 	class CanvasWidgetResizeHandler {
-		List<CanvasWidget> selectedWidgets = new ArrayList<CanvasWidget>();
+		private List<CWBeforeResize> originalWidgets = new ArrayList<CWBeforeResize>();
+		private List<CanvasWidget> selectedWidgets = new ArrayList<CanvasWidget>();
+		private Canvas canvas = null;
+		private MouseMotionListener[] savedMMLs = null;
+		private MouseListener[] savedMLs = null;
+		private Point start = new Point();
+		private Component hitWidget = null;
+		private int direction = 0;
+		int ox, oy, ow, oh; 
+		int count=0;
+		
+		private boolean resizing = false;
+		
+		private MouseAdapter ma = new MouseAdapter() {
 
-		private MouseMotionListener mml = new MouseMotionListener() {
-			public void mouseDragged(MouseEvent e) {
-				System.out.println("moose loose");
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				System.out.println("mouseReleased: letting go ...");
+				e.getComponent().removeMouseListener(this);
+				e.getComponent().removeMouseMotionListener(this);
+				restoreOtherMLs((Canvas) e.getComponent());
+				setResizing(false);
+				e.consume();
 			}
 
-			public void mouseMoved(MouseEvent e) {}				
+			@Override
+			public void mouseDragged(MouseEvent e) {
+				// here is where we do all the resizing work on every selected widget
+				Point current = e.getPoint();
+				Point delta = new Point(current.x - start.x, current.y - start.y);
+				double xratio = delta.x / hitWidget.getWidth();
+				double yratio = delta.y / hitWidget.getHeight();
+				
+				int x=ox, y=oy, w=ow, h=oh; 
+				
+				// for now just do hitComp
+				switch(direction) {
+				case Cursor.NW_RESIZE_CURSOR:
+					x += delta.x; y += delta.y; w -= delta.x; h -= delta.y;
+					break;
+				case Cursor.N_RESIZE_CURSOR:
+					y += delta.y; h -= delta.y;
+					break;
+				case Cursor.NE_RESIZE_CURSOR:
+					y += delta.y; w += delta.x; h -= delta.y;
+					break;
+				case Cursor.E_RESIZE_CURSOR:
+					x += delta.x; w -= delta.x;
+					break;
+				case Cursor.W_RESIZE_CURSOR:
+					w += delta.x; 
+					break;
+				case Cursor.SW_RESIZE_CURSOR:
+					x += delta.x; w -= delta.x; h += delta.y;
+					break;
+				case Cursor.S_RESIZE_CURSOR:
+					h += delta.y;
+					break;
+				case Cursor.SE_RESIZE_CURSOR:			
+					w += delta.x; h += delta.y;
+					break;
+				}
+				
+				hitWidget.setBounds(x, y, w, h);
+				hitWidget.revalidate();
+				canvas.repaint();
+				
+				// .next is loop through selected and apply algo
+				
+				e.consume();
+			}
+			
 		};
 		
 		public void startResize(MouseEvent e) {
-			selectedWidgets.clear();
-			Canvas canvas = (Canvas) e.getComponent();
-			// get all the selected widgets
-			for ( Component comp : canvas.getComponents() ) {
-				if ( comp instanceof CanvasWidget ) {
-					if ( ((CanvasWidget) comp).isSelected() ) 
-						selectedWidgets.add((CanvasWidget) comp);
-				}
-			}
+			if ( !isResizing() ) {
+				setResizing(true);
+				originalWidgets.clear();
+				selectedWidgets.clear();
 
-			// figure out which component was hit and get the cursor
-			Component hitComp = canvas.getComponentAt(e.getPoint());
-			Cursor cursor = hitComp.getCursor();
+				canvas = (Canvas) e.getComponent();
+				// get all the selected widgets
+				for ( Component comp : canvas.getComponents() ) {
+					if ( comp instanceof CanvasWidget ) {
+						if ( ((CanvasWidget) comp).isSelected() ) {
+							// save away for reference and any TBD undo operation
+							originalWidgets.add(new CWBeforeResize((CanvasWidget) comp, new Rectangle(comp.getBounds())));
+							// create handy local list of selected widgets
+							selectedWidgets.add((CanvasWidget) comp);
+						}
+					}
+				}
+
+				// figure out which component was hit and get the cursor
+				start = e.getPoint();
+				hitWidget = canvas.getComponentAt(e.getPoint());
+				direction = hitWidget.getCursor().getType();
+				ox = hitWidget.getX();
+				oy = hitWidget.getY();
+				ow = hitWidget.getWidth();
+				oh = hitWidget.getHeight();
+
+				// use subsequent drags to work out moves from opposite corner / side
+				suspendOtherMLs(canvas);
+				canvas.addMouseListener(ma);
+				canvas.addMouseMotionListener(ma);
+
+			}
 			
-			// use subsequent drags to work out percentage move from opposite corner / side
-			
-			// fire that percentage into each selected widget
+		}
+		
+		private void suspendOtherMLs(Canvas canvas) {
+			savedMMLs=canvas.getMouseMotionListeners();
+			savedMLs=canvas.getMouseListeners();
+			for ( MouseMotionListener mml : savedMMLs )
+				canvas.removeMouseMotionListener(mml);
+			for ( MouseListener ml : savedMLs )
+				canvas.removeMouseListener(ml);
+		}
+		
+		private void restoreOtherMLs(Canvas canvas) {
+			for ( MouseMotionListener mml : savedMMLs )
+				canvas.addMouseMotionListener(mml);
+			for ( MouseListener ml : savedMLs )
+				canvas.addMouseListener(ml);
+		}
+		
+		public boolean isResizing() {
+			return resizing;
+		}
+
+		public void setResizing(boolean resizing) {
+			this.resizing = resizing;
+		}
+
+		class CWBeforeResize {
+			private CanvasWidget widget;
+			private Rectangle bounds;
+			public CWBeforeResize(CanvasWidget comp, Rectangle rectangle) {
+				widget = comp;
+				bounds = rectangle;
+			}
+			public CanvasWidget getWidget() {
+				return widget;
+			}
+			public void setWidget(CanvasWidget widget) {
+				this.widget = widget;
+			}
+			public Rectangle getBounds() {
+				return bounds;
+			}
+			public void setBounds(Rectangle bounds) {
+				this.bounds = bounds;
+			}
 		}
 	}
 	
