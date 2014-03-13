@@ -378,10 +378,11 @@ public class DragginSwing4 extends JFrame {
 				return false;
 			}
 
+			Point mouseLocation = support.getDropLocation().getDropPoint();
+			Point imageOffset = getDragImageOffset();
+			
 			for ( Rectangle bounds : boundsList ) {
 				CanvasWidget widget = new CanvasWidget();
-				Point mouseLocation = support.getDropLocation().getDropPoint();
-				Point imageOffset = getDragImageOffset();
 				Point realDropLocation = new Point(
 						mouseLocation.x + imageOffset.x + bounds.x - canvasOffset.x,
 						mouseLocation.y + imageOffset.y + bounds.y - canvasOffset.y);
