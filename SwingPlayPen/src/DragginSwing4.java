@@ -329,7 +329,14 @@ public class DragginSwing4 extends JFrame {
 				}
 
 				setDragImage(selectedWidgetsImage);
-				setDragImageOffset(new Point(allSelectedArea.x - dragStart.x, allSelectedArea.y - dragStart.y));
+				
+				Point imageOffset = new Point(allSelectedArea.x - dragStart.x, allSelectedArea.y - dragStart.y);
+				// stupid java inconsistency between platforms
+	    	    if (System.getProperty("os.name").toLowerCase().indexOf("windows") != -1) { 
+	    	    	imageOffset = new Point(-imageOffset.x,-imageOffset.y);
+	    	    }
+	    	    
+				setDragImageOffset(imageOffset);
 				return new CanvasWidgetTransferable(selectedWidgetList,allSelectedArea.getLocation());
 			}
 			return null;				
@@ -381,6 +388,11 @@ public class DragginSwing4 extends JFrame {
 			Point mouseLocation = support.getDropLocation().getDropPoint();
 			Point imageOffset = getDragImageOffset();
 			
+			// stupid java inconsistency between platforms
+    	    if (System.getProperty("os.name").toLowerCase().indexOf("windows") != -1) { 
+    	    	imageOffset = new Point(-imageOffset.x,-imageOffset.y);
+    	    }
+    	    
 			for ( Rectangle bounds : boundsList ) {
 				CanvasWidget widget = new CanvasWidget();
 				Point realDropLocation = new Point(
