@@ -1,9 +1,11 @@
+import java.awt.AWTEvent;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -14,55 +16,132 @@ import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.InputEvent;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
+import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JLayer;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
 import javax.swing.WindowConstants;
 import javax.swing.border.Border;
+import javax.swing.plaf.LayerUI;
+
 
 /*
  * adds mouse pointer visualisation if over a draggable widget, illustrating what happens if each widget 
  * actually has content that cares about mouse and dnd actions and how to manage mouse actions for resize
  * as well as DnD and selection 
  * 
+ * demonstrates the impact of using a transform to zoom the view on Java DnD
+ * 
  * changes the way the original drag position is calculated. heavy processing in an app may cause mouse events
  * to be lost between initially clicking within a listening object and the drag being reported resulting in
  * it looking like the drag started from a later location 
  */
-public class DragginSwing5 extends JFrame {
+public class DragginSwing5 extends JFrame implements ItemListener {
 
 	private DataFlavor widgetListFlavor = new DataFlavor(CanvasWidget.class,"Draggin canvas widget list");
 	private DataFlavor widgetOffsetFlavor = new DataFlavor(CanvasWidget.class,"Draggin canvas widget offset");
 	
+	private boolean zoomCanvas = false;
+	private ZoomUI zoomUI = new ZoomUI();
+	
 	public DragginSwing5() {
 		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 		this.setPreferredSize(new Dimension(600,400));
+		this.getContentPane().setLayout(new BorderLayout());
 		
+
+		JCheckBox zoom = new JCheckBox("Zoom");
+		zoom.addItemListener(this);
+		add(zoom, BorderLayout.NORTH);
+
 		Canvas canvas = new Canvas();
-		add(canvas, BorderLayout.CENTER);
+		add(new JLayer<JComponent>(canvas,zoomUI), BorderLayout.CENTER);
 		new CanvasDragController(canvas);
 		
 		for ( int i=0; i<3 ; i++) {
 			CanvasWidget widget = new CanvasWidget();
 			widget.setLocation(new Point(10+(i*50),10+(i*50)));
-			canvas.add(widget);
+			// widget.setBounds(10+(i*50),10+(i*50), 0, 0);
+			// canvas.add(new JLayer<JComponent>(widget,zoomUI));
+			canvas.add(widget, BorderLayout.CENTER);
 		}
+		
+		for ( Component c : canvas.getComponents() )
+			System.out.println(c);
 		
 		pack();
 		setVisible(true);
+	}
+	
+	@Override
+	public void itemStateChanged(ItemEvent e) {
+		zoomCanvas = e.getStateChange() == ItemEvent.SELECTED;
+		System.out.println(zoomCanvas);
+		this.repaint();
+	}
+	
+	@SuppressWarnings("serial")
+	class ZoomUI extends LayerUI<JComponent> {
+        
+		public void paint(Graphics g, JComponent c) {
+			System.out.println("paint: "+c);
+			Graphics2D g2D = (Graphics2D) g;
+			if ( zoomCanvas ) 
+				g2D.scale(2.0f, 2.0f);
+            super.paint(g2D, c);
+            g2D.scale(0.5f,0.5f);
+        }
+		
+        public void installUI(JComponent c) {
+            super.installUI(c);
+            // enable mouse motion events for the layer's subcomponents
+            ((JLayer) c).setLayerEventMask(AWTEvent.MOUSE_EVENT_MASK | AWTEvent.MOUSE_MOTION_EVENT_MASK);
+        }
+
+        public void uninstallUI(JComponent c) {
+            super.uninstallUI(c);
+            // reset the layer event mask
+            ((JLayer) c).setLayerEventMask(0);
+        }
+
+        // all well and good but doesn't allow moving a partial logical unit
+        
+        
+		@Override
+		protected void processMouseEvent(MouseEvent e,
+				JLayer<? extends JComponent> l) {
+			System.out.println("AWTEvent detected: " + e);
+			e.consume();
+			// super.processMouseEvent(e, l);
+		}
+
+		@Override
+		protected void processMouseMotionEvent(MouseEvent e,
+				JLayer<? extends JComponent> l) {
+			System.out.println("AWTEvent detected: " + e);
+			e.consume();
+			super.processMouseMotionEvent(e, l);
+		}
 	}
 	
 	class Canvas extends JPanel {
@@ -75,9 +154,10 @@ public class DragginSwing5 extends JFrame {
 			selectionPanel.setBounds(0, 0, 0, 0);
 			selectionPanel.setOpaque(false);
 			selectionPanel.setVisible(false);
-			add(selectionPanel);
+			// add(selectionPanel);
+			add(new JLayer<JComponent>(selectionPanel,zoomUI));
 		}
-		
+			
 		public void setSelectionBounds(Point point1, Point point2) {
 			selectionPanel.setLocation(Math.min(point1.x, point2.x),Math.min(point1.y, point2.y));
 			selectionPanel.setSize(
@@ -636,10 +716,11 @@ public class DragginSwing5 extends JFrame {
 	public static void main(String[] args) {
 		SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
-				new DragginSwing4();
+				new DragginSwing5();
 			}
 		});
 	}
+
 }
 
 
